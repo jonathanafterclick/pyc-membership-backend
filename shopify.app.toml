@@ -1,0 +1,30 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e1061aefe8f8729bf44a60f7121719b5"
+application_url = "https://example.com"
+embedded = true
+name = "PYC Membership Backend"
+
+[access_scopes]
+scopes = "read_orders,write_customers"
+
+[webhooks]
+api_version = "2026-07"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = ["app/uninstalled"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = ["app/scopes_update"]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/paid"
+  topics = ["orders/paid"]
+
+[auth]
+redirect_urls = ["https://example.com/api/auth"]
+
+[build]
+automatically_update_urls_on_dev = true
