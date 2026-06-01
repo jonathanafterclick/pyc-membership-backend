@@ -1,7 +1,5 @@
-# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
-
 client_id = "e1061aefe8f8729bf44a60f7121719b5"
-application_url = "https://example.com"
+application_url = "https://pyc-membership-backend.onrender.com"
 embedded = true
 name = "PYC Membership Backend"
 
@@ -24,7 +22,7 @@ api_version = "2026-07"
   topics = ["orders/paid"]
 
 [auth]
-redirect_urls = ["https://example.com/api/auth"]
+redirect_urls = ["https://pyc-membership-backend.onrender.com/auth/callback"]
 
 [build]
 automatically_update_urls_on_dev = true
