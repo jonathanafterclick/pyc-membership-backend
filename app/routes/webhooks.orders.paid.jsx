@@ -15,6 +15,13 @@ const ELIGIBLE_TICKET_PRODUCT_IDS = [
     "7206872416352",
 ];
 
+const MEMBERSHIP_VARIANT_TO_TIER = {
+    "42773692481632": 1,
+    "42773692514400": 2,
+    "42773692547168": 3,
+    "42773692579936": 4,
+};
+
 const TICKET_PRICE = 69;
 
 export const action = async ({ request }) => {
@@ -26,10 +33,27 @@ export const action = async ({ request }) => {
         return new Response();
     }
 
+    const membershipTierFromOrder = getMembershipTierFromOrder(payload);
+
+    if (membershipTierFromOrder > 0) {
+        await resetMembershipCredits(admin, customerGid, membershipTierFromOrder);
+
+        await setCustomerDebug(admin, customerGid, {
+            order: payload.name,
+            action: "renewal_reset",
+            tier: membershipTierFromOrder,
+            creditsSetTo: membershipTierFromOrder,
+            processedAt: new Date().toISOString(),
+        });
+
+        return new Response();
+    }
+
     const usedCredits = getUsedMembershipCredits(payload);
 
     await setCustomerDebug(admin, customerGid, {
         order: payload.name,
+        action: "credit_burn",
         usedCredits,
         processedAt: new Date().toISOString(),
     });
@@ -45,6 +69,18 @@ export const action = async ({ request }) => {
 
     return new Response();
 };
+
+function getMembershipTierFromOrder(order) {
+    for (const lineItem of order.line_items || []) {
+        const variantId = String(lineItem.variant_id);
+
+        if (MEMBERSHIP_VARIANT_TO_TIER[variantId]) {
+            return MEMBERSHIP_VARIANT_TO_TIER[variantId];
+        }
+    }
+
+    return 0;
+}
 
 function getUsedMembershipCredits(order) {
     let usedCredits = 0;
@@ -91,6 +127,64 @@ async function getCustomerCredits(admin, customerGid) {
     return Number(json.data?.customer?.metafield?.value || 0);
 }
 
+async function resetMembershipCredits(admin, customerGid, tier) {
+    const now = new Date().toISOString();
+
+    const response = await admin.graphql(
+        `#graphql
+      mutation ResetMembershipCredits($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+        {
+            variables: {
+                metafields: [
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_credits",
+                        type: "number_integer",
+                        value: String(tier),
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_tier",
+                        type: "number_integer",
+                        value: String(tier),
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_status",
+                        type: "single_line_text_field",
+                        value: "active",
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "last_membership_renewal",
+                        type: "date_time",
+                        value: now,
+                    },
+                ],
+            },
+        }
+    );
+
+    const json = await response.json();
+    const errors = json.data?.metafieldsSet?.userErrors || [];
+
+    if (errors.length) {
+        console.error(errors);
+    }
+}
+
 async function setCustomerCredits(admin, customerGid, credits) {
     const response = await admin.graphql(
         `#graphql
@@ -119,7 +213,6 @@ async function setCustomerCredits(admin, customerGid, credits) {
     );
 
     const json = await response.json();
-
     const errors = json.data?.metafieldsSet?.userErrors || [];
 
     if (errors.length) {
