@@ -88,21 +88,17 @@ function getMembershipTierFromOrder(order) {
             .join(" ")
             .toLowerCase();
 
-        if (searchableTitle.includes("puppy yoga club membership")) {
-            if (searchableTitle.includes("4 membership")) return 4;
-            if (searchableTitle.includes("4 memberships")) return 4;
+        if (searchableTitle.includes("includes 4 class")) return 4;
+        if (searchableTitle.includes("includes 4 classes")) return 4;
 
-            if (searchableTitle.includes("3 membership")) return 3;
-            if (searchableTitle.includes("3 memberships")) return 3;
+        if (searchableTitle.includes("includes 3 class")) return 3;
+        if (searchableTitle.includes("includes 3 classes")) return 3;
 
-            if (searchableTitle.includes("2 membership")) return 2;
-            if (searchableTitle.includes("2 memberships")) return 2;
+        if (searchableTitle.includes("includes 2 class")) return 2;
+        if (searchableTitle.includes("includes 2 classes")) return 2;
 
-            if (searchableTitle.includes("1 membership")) return 1;
-            if (searchableTitle.includes("1 memberships")) return 1;
-
-            return 1;
-        }
+        if (searchableTitle.includes("includes 1 class")) return 1;
+        if (searchableTitle.includes("includes 1 classes")) return 1;
     }
 
     return 0;
