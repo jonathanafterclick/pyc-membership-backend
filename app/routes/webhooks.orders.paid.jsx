@@ -72,10 +72,36 @@ export const action = async ({ request }) => {
 
 function getMembershipTierFromOrder(order) {
     for (const lineItem of order.line_items || []) {
-        const variantId = String(lineItem.variant_id);
+        const variantId = String(lineItem.variant_id || "");
 
         if (MEMBERSHIP_VARIANT_TO_TIER[variantId]) {
             return MEMBERSHIP_VARIANT_TO_TIER[variantId];
+        }
+
+        const searchableTitle = [
+            lineItem.title,
+            lineItem.name,
+            lineItem.variant_title,
+            lineItem.sku,
+        ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+        if (searchableTitle.includes("puppy yoga club membership")) {
+            if (searchableTitle.includes("4 membership")) return 4;
+            if (searchableTitle.includes("4 memberships")) return 4;
+
+            if (searchableTitle.includes("3 membership")) return 3;
+            if (searchableTitle.includes("3 memberships")) return 3;
+
+            if (searchableTitle.includes("2 membership")) return 2;
+            if (searchableTitle.includes("2 memberships")) return 2;
+
+            if (searchableTitle.includes("1 membership")) return 1;
+            if (searchableTitle.includes("1 memberships")) return 1;
+
+            return 1;
         }
     }
 
@@ -181,7 +207,7 @@ async function resetMembershipCredits(admin, customerGid, tier) {
     const errors = json.data?.metafieldsSet?.userErrors || [];
 
     if (errors.length) {
-        console.error(errors);
+        console.error("Reset membership credits errors:", errors);
     }
 }
 
@@ -216,7 +242,7 @@ async function setCustomerCredits(admin, customerGid, credits) {
     const errors = json.data?.metafieldsSet?.userErrors || [];
 
     if (errors.length) {
-        console.error(errors);
+        console.error("Set customer credits errors:", errors);
     }
 }
 
