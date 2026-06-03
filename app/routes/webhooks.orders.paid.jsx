@@ -24,6 +24,11 @@ const MEMBERSHIP_VARIANT_TO_TIER = {
 
 const TICKET_PRICE = 69;
 
+const MEMBERSHIP_DISCOUNT_TITLES = [
+    "Puppy Yoga Membership Credits",
+    "Membership free ticket",
+];
+
 export const action = async ({ request }) => {
     const { admin, payload } = await authenticate.webhook(request);
 
@@ -107,6 +112,8 @@ function getMembershipTierFromOrder(order) {
 function getUsedMembershipCredits(order) {
     let usedCredits = 0;
 
+    const discountApplications = order.discount_applications || [];
+
     for (const lineItem of order.line_items || []) {
         const productId = String(lineItem.product_id);
 
@@ -115,6 +122,13 @@ function getUsedMembershipCredits(order) {
         }
 
         for (const allocation of lineItem.discount_allocations || []) {
+            const discountApplication =
+                discountApplications[allocation.discount_application_index];
+
+            if (!isMembershipDiscountApplication(discountApplication)) {
+                continue;
+            }
+
             const amount = Number(allocation.amount || 0);
 
             if (amount <= 0) continue;
@@ -124,6 +138,24 @@ function getUsedMembershipCredits(order) {
     }
 
     return usedCredits;
+}
+
+function isMembershipDiscountApplication(discountApplication) {
+    if (!discountApplication) return false;
+
+    const searchableText = [
+        discountApplication.title,
+        discountApplication.description,
+        discountApplication.code,
+        discountApplication.type,
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return MEMBERSHIP_DISCOUNT_TITLES.some((title) =>
+        searchableText.includes(title.toLowerCase())
+    );
 }
 
 async function getCustomerCredits(admin, customerGid) {
