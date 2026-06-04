@@ -4,7 +4,7 @@ embedded = true
 name = "PYC Membership Backend"
 
 [access_scopes]
-scopes = "read_orders,write_customers"
+scopes = "read_orders,read_customers,write_customers"
 
 [webhooks]
 api_version = "2026-07"
