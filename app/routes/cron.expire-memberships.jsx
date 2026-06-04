@@ -12,6 +12,8 @@ export const action = async ({ request }) => {
 };
 
 async function handleCron(request) {
+    console.log("CRON START");
+
     const url = new URL(request.url);
     const secret = url.searchParams.get("secret");
 
@@ -33,6 +35,8 @@ async function handleCron(request) {
 
     while (true) {
         const { customers, pageInfo } = await fetchCustomers(admin, after);
+
+        console.log("Fetched active members:", customers.length);
 
         for (const customer of customers) {
             scanned += 1;
@@ -64,6 +68,8 @@ async function handleCron(request) {
         after = pageInfo.endCursor;
     }
 
+    console.log("CRON DONE", { scanned, expired });
+
     return Response.json({
         ok: true,
         scanned,
@@ -75,8 +81,8 @@ async function handleCron(request) {
 async function fetchCustomers(admin, after) {
     const response = await admin.graphql(
         `#graphql
-      query FetchCustomers($first: Int!, $after: String) {
-        customers(first: $first, after: $after) {
+      query FetchCustomers($first: Int!, $after: String, $query: String!) {
+        customers(first: $first, after: $after, query: $query) {
           pageInfo {
             hasNextPage
             endCursor
@@ -104,11 +110,17 @@ async function fetchCustomers(admin, after) {
             variables: {
                 first: PAGE_SIZE,
                 after,
+                query: "metafield:custom.membership_status=active",
             },
         }
     );
 
     const json = await response.json();
+
+    if (json.errors?.length) {
+        console.error("Fetch customers GraphQL errors:", JSON.stringify(json.errors));
+        throw new Error("Failed to fetch customers");
+    }
 
     return {
         customers: json.data?.customers?.nodes || [],
@@ -195,6 +207,6 @@ async function expireCustomerMembership(admin, customerId, previousData) {
     const errors = json.data?.metafieldsSet?.userErrors || [];
 
     if (errors.length) {
-        console.error("Expire membership errors:", errors);
+        console.error("Expire membership errors:", JSON.stringify(errors));
     }
 }
