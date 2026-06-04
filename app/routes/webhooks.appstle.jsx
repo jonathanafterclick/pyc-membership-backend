@@ -19,29 +19,36 @@ export async function action({ request }) {
         console.log("APPSTLE STATUS:", event.data?.status);
         console.log("APPSTLE CUSTOMER:", event.data?.customer?.id);
 
-        if (
+        const isCancellation =
             event.type === "subscription.cancelled" ||
-            (event.type === "subscription.updated" && event.data?.status === "CANCELLED")
-        ) {
-            const customerGid = event.data?.customer?.id;
+            (event.type === "subscription.updated" &&
+                event.data?.status === "CANCELLED");
 
-            if (!customerGid) {
-                console.error("APPSTLE CANCEL ERROR: Missing customer ID");
-                return new Response("Missing customer ID", { status: 200 });
-            }
-
-            const { admin } = await unauthenticated.admin(
-                process.env.SHOPIFY_SHOP_DOMAIN
-            );
-
-            await cancelMembership(admin, customerGid);
-
-            console.log("APPSTLE CANCEL PROCESSED:", customerGid);
+        if (!isCancellation) {
+            return new Response("OK", { status: 200 });
         }
 
-        return new Response("OK", {
-            status: 200,
-        });
+        const customerGid = event.data?.customer?.id;
+
+        if (!customerGid) {
+            console.error("APPSTLE CANCEL ERROR: Missing customer ID");
+            return new Response("Missing customer ID", { status: 200 });
+        }
+
+        const shopDomain = process.env.SHOPIFY_SHOP_DOMAIN;
+
+        if (!shopDomain) {
+            console.error("APPSTLE CANCEL ERROR: Missing SHOPIFY_SHOP_DOMAIN");
+            return new Response("Missing shop domain", { status: 200 });
+        }
+
+        const { admin } = await unauthenticated.admin(shopDomain);
+
+        await cancelMembership(admin, customerGid);
+
+        console.log("APPSTLE CANCEL PROCESSED:", customerGid);
+
+        return new Response("OK", { status: 200 });
     } catch (error) {
         console.error("WEBHOOK ERROR:", error);
 
