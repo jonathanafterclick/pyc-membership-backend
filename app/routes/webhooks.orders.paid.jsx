@@ -229,6 +229,8 @@ async function getCustomerCredits(admin, customerGid) {
 }
 
 async function initializeMembership(admin, customerGid, tier) {
+    const now = new Date().toISOString();
+
     const response = await admin.graphql(
         `#graphql
       mutation InitializeMembership($metafields: [MetafieldsSetInput!]!) {
@@ -263,6 +265,13 @@ async function initializeMembership(admin, customerGid, tier) {
                         key: "membership_status",
                         type: "single_line_text_field",
                         value: "active",
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "last_membership_renewal",
+                        type: "date_time",
+                        value: now,
                     },
                 ],
             },
