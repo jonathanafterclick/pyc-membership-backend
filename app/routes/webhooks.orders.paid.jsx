@@ -41,11 +41,8 @@ export const action = async ({ request }) => {
     const membershipTierFromOrder = getMembershipTierFromOrder(payload);
 
     if (membershipTierFromOrder > 0) {
-        const currentMembership = await getCustomerMembership(admin, customerGid);
-
-        const isRenewal =
-            currentMembership.status === "active" &&
-            currentMembership.tier > 0;
+        const isInitialMembershipPurchase = hasEligibleTicketInOrder(payload);
+        const isRenewal = !isInitialMembershipPurchase;
 
         if (isRenewal) {
             await resetMembershipCredits(admin, customerGid, membershipTierFromOrder);
@@ -127,6 +124,12 @@ function getMembershipTierFromOrder(order) {
     return 0;
 }
 
+function hasEligibleTicketInOrder(order) {
+    return (order.line_items || []).some((lineItem) =>
+        ELIGIBLE_TICKET_PRODUCT_IDS.includes(String(lineItem.product_id))
+    );
+}
+
 function getUsedMembershipCredits(order) {
     let usedCredits = 0;
 
@@ -174,35 +177,6 @@ function isMembershipDiscountApplication(discountApplication) {
     return MEMBERSHIP_DISCOUNT_TITLES.some((title) =>
         searchableText.includes(title.toLowerCase())
     );
-}
-
-async function getCustomerMembership(admin, customerGid) {
-    const response = await admin.graphql(
-        `#graphql
-      query GetCustomerMembership($id: ID!) {
-        customer(id: $id) {
-          membershipStatus: metafield(namespace: "custom", key: "membership_status") {
-            value
-          }
-          membershipTier: metafield(namespace: "custom", key: "membership_tier") {
-            value
-          }
-        }
-      }
-    `,
-        {
-            variables: {
-                id: customerGid,
-            },
-        }
-    );
-
-    const json = await response.json();
-
-    return {
-        status: json.data?.customer?.membershipStatus?.value || "",
-        tier: Number(json.data?.customer?.membershipTier?.value || 0),
-    };
 }
 
 async function getCustomerCredits(admin, customerGid) {
