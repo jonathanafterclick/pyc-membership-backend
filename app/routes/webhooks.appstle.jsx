@@ -80,20 +80,6 @@ async function cancelMembership(admin, customerGid) {
                         type: "single_line_text_field",
                         value: "cancelled",
                     },
-                    {
-                        ownerId: customerGid,
-                        namespace: "custom",
-                        key: "membership_credits",
-                        type: "number_integer",
-                        value: "0",
-                    },
-                    {
-                        ownerId: customerGid,
-                        namespace: "custom",
-                        key: "membership_tier",
-                        type: "number_integer",
-                        value: "0",
-                    },
                 ],
             },
         }
