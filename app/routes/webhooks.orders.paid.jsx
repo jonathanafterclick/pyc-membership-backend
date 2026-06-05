@@ -41,15 +41,33 @@ export const action = async ({ request }) => {
     const membershipTierFromOrder = getMembershipTierFromOrder(payload);
 
     if (membershipTierFromOrder > 0) {
-        await resetMembershipCredits(admin, customerGid, membershipTierFromOrder);
+        const currentMembership = await getCustomerMembership(admin, customerGid);
 
-        await setCustomerDebug(admin, customerGid, {
-            order: payload.name,
-            action: "renewal_reset",
-            tier: membershipTierFromOrder,
-            creditsSetTo: membershipTierFromOrder,
-            processedAt: new Date().toISOString(),
-        });
+        const isRenewal =
+            currentMembership.status === "active" &&
+            currentMembership.tier > 0;
+
+        if (isRenewal) {
+            await resetMembershipCredits(admin, customerGid, membershipTierFromOrder);
+
+            await setCustomerDebug(admin, customerGid, {
+                order: payload.name,
+                action: "renewal_reset",
+                tier: membershipTierFromOrder,
+                creditsSetTo: membershipTierFromOrder,
+                processedAt: new Date().toISOString(),
+            });
+        } else {
+            await initializeMembership(admin, customerGid, membershipTierFromOrder);
+
+            await setCustomerDebug(admin, customerGid, {
+                order: payload.name,
+                action: "initial_membership_purchase",
+                tier: membershipTierFromOrder,
+                creditsSetTo: 0,
+                processedAt: new Date().toISOString(),
+            });
+        }
 
         return new Response();
     }
@@ -158,6 +176,35 @@ function isMembershipDiscountApplication(discountApplication) {
     );
 }
 
+async function getCustomerMembership(admin, customerGid) {
+    const response = await admin.graphql(
+        `#graphql
+      query GetCustomerMembership($id: ID!) {
+        customer(id: $id) {
+          membershipStatus: metafield(namespace: "custom", key: "membership_status") {
+            value
+          }
+          membershipTier: metafield(namespace: "custom", key: "membership_tier") {
+            value
+          }
+        }
+      }
+    `,
+        {
+            variables: {
+                id: customerGid,
+            },
+        }
+    );
+
+    const json = await response.json();
+
+    return {
+        status: json.data?.customer?.membershipStatus?.value || "",
+        tier: Number(json.data?.customer?.membershipTier?.value || 0),
+    };
+}
+
 async function getCustomerCredits(admin, customerGid) {
     const response = await admin.graphql(
         `#graphql
@@ -179,6 +226,55 @@ async function getCustomerCredits(admin, customerGid) {
     const json = await response.json();
 
     return Number(json.data?.customer?.metafield?.value || 0);
+}
+
+async function initializeMembership(admin, customerGid, tier) {
+    const response = await admin.graphql(
+        `#graphql
+      mutation InitializeMembership($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+        {
+            variables: {
+                metafields: [
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_credits",
+                        type: "number_integer",
+                        value: "0",
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_tier",
+                        type: "number_integer",
+                        value: String(tier),
+                    },
+                    {
+                        ownerId: customerGid,
+                        namespace: "custom",
+                        key: "membership_status",
+                        type: "single_line_text_field",
+                        value: "active",
+                    },
+                ],
+            },
+        }
+    );
+
+    const json = await response.json();
+    const errors = json.data?.metafieldsSet?.userErrors || [];
+
+    if (errors.length) {
+        console.error("Initialize membership errors:", errors);
+    }
 }
 
 async function resetMembershipCredits(admin, customerGid, tier) {
